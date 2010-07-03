@@ -22,6 +22,7 @@
  Boston, MA 02111-1307, USA.
 
  2009 Rob Rohan: Tweaked the XML lang spec for Coldfusion
+ 2010 Trent Richardson: bound to css, js, sql, added cfscript syntax
 -->
 <language id="cfml" _name="CFML" version="2.0" _section="Markup">
     <metadata>
@@ -32,12 +33,29 @@
     </metadata>
 
     <styles>
-        <style id="comment" _name="Comment" map-to="xml:comment"/>
-        <style id="tag" _name="Tag" map-to="xml:element-name"/>
-        <style id="attrib-name" _name="Attribute Name" map-to="xml:attribute-name"/>
-        <style id="attrib-value" _name="Attribute Value" map-to="xml:attribute-value"/>
-        <style id="dtd" _name="DTD" map-to="xml:doctype"/>
-        <style id="error" _name="Error" map-to="xml:error"/>
+        <style id="comment"    _name="Comment"         map-to="xml:comment"/>
+        <style id="tag"        _name="Tag"             map-to="xml:element-name"/>
+        <style id="attr-name"  _name="Attribute Name"  map-to="xml:attribute-name"/>
+        <style id="attr-value" _name="Attribute Value" map-to="xml:attribute-value"/>
+        <style id="dtd"        _name="DTD"             map-to="xml:doctype"/>
+        <style id="error"      _name="Error"           map-to="xml:error"/>
+
+		<style id="string"     _name="String"          map-to="def:string"/>
+	    <style id="char"       _name="Character"       map-to="def:character"/>
+	    <style id="external"   _name="External"        map-to="def:preprocessor"/>
+	    <style id="declaration" _name="Declaration"    map-to="def:type"/>
+	    <style id="storage-class" _name="Storage Class" map-to="def:type"/>
+	    <style id="scope-declaration" _name="Scope Declaration" map-to="def:type"/>
+	    <style id="operator"   _name="Operator"       map-to="def:operator"/>
+	    <style id="keyword"    _name="Keyword"        map-to="def:keyword"/>
+	    <style id="null-value" _name="Null Value"     map-to="def:special-constant"/>
+	    <style id="boolean"    _name="Boolean value"  map-to="def:boolean"/>
+	    <style id="number"     _name="Number"         map-to="def:decimal"/>
+	    <style id="reserved"   _name="Future Reserved Keywords" map-to="def:reserved"/>
+	    <style id="type"       _name="Data Type"      map-to="def:type"/>
+        <style id="function"   _name="Function"       map-to="def:function"/>
+		
+        <style id="cftag"      _name="CFTag"          map-to="def:decimal"/>
     </styles>
 
     <default-regex-options case-sensitive="false"/>
@@ -73,19 +91,21 @@
             <include>
 
                 <!-- Attribute in the form: name="value" -->
-                <context id="attrib-quoted" style-ref="attrib-name">
+                <context id="attr-quoted" style-ref="attr-name">
                     <start extended="true">
                         [A-Za-z0-9:_-]+ # attribute name
                         \s*=\s*         # "="
-                        (\")            # string beginning
+                        (\"|\')            # string beginning
                     </start>
-                    <end>\"</end>
+                    <end>\"|\'</end>
                     <include>
-                        <context sub-pattern="1" where="start" style-ref="attrib-value"/>
-                        <context sub-pattern="0" where="end" style-ref="attrib-value"/>
-                        <context id="string" extend-parent="false" end-at-line-end="true" style-ref="attrib-value">
+                        <context sub-pattern="1" where="start" style-ref="attr-value"/>
+                        <context sub-pattern="0" where="end" style-ref="attr-value"/>
+                        <context id="string" extend-parent="false" end-at-line-end="true" style-ref="attr-value">
                             <start>\%{def:always-match}</start>
                             <include>
+								<!-- only cftag because there get to be too many colors here with cfscript-syntax colors too.. -->
+	                        	<context ref="cftag"/>
                                 <context ref="xml:entity"/>
                                 <context ref="xml:character-reference"/>
                                 <context ref="embedded-lang-hook"/>
@@ -109,14 +129,37 @@
                 </context>
 
                 <!-- Attribute in the form: name -->
-                <context id="attrib-no-value" style-ref="attrib-name">
+                <context id="attr-no-value" style-ref="attr-name">
                     <match extended="true">
                         [a-z0-9:_-]+  # attribute name
                     </match>
                 </context>
-
+				
                 <context ref="embedded-lang-hook"/>
 
+            </include>
+        </context>
+
+		<context id="css">
+            <start>&lt;\s*style\%]</start>
+            <end>/&gt;|&lt;\s*/\s*style\s*&gt;</end>
+
+            <include>
+                <context sub-pattern="0" where="start" style-ref="tag"/>
+                <context sub-pattern="0" where="end" style-ref="tag"/>
+                <context ref="generic-tag"/>
+                <context id="css-code" extend-parent="false">
+                    <start>&gt;</start>
+                    <include>
+                        <context sub-pattern="0" where="start" style-ref="tag"/>
+                        <context ref="css:css"/>
+						<!-- highlight any cf inside css blocks -->
+                        <context ref="cfquery"/>
+                        <context ref="cfscript"/>
+                        <context ref="cfset"/>
+                        <context ref="cftag"/>
+                    </include>
+                </context>
             </include>
         </context>
 
@@ -133,8 +176,71 @@
                     <include>
                         <context sub-pattern="0" where="start" style-ref="tag"/>
                         <context ref="js:js"/>
+						<!-- highlight any cf inside javascript blocks -->
+                        <context ref="cfquery"/>
+                        <context ref="cfscript"/>
+                        <context ref="cfset"/>
+                        <context ref="cftag"/>
                     </include>
                 </context>
+            </include>
+        </context>
+
+        <context id="cfquery">
+            <start>&lt;\s*cfquery\%]</start>
+            <end>/&gt;|&lt;\s*/\s*cfquery\s*&gt;</end>
+
+            <include>
+                <context sub-pattern="0" where="start" style-ref="cftag"/>
+                <context sub-pattern="0" where="end" style-ref="cftag"/>
+                <context ref="generic-tag"/>
+                <context id="sql-code" extend-parent="false">
+                    <start>&gt;</start>
+                    <include>
+                        <context sub-pattern="0" where="start" style-ref="cftag"/>
+                        <context ref="sql:sql"/>
+                        <context ref="cftag"/>
+                    </include>
+                </context>
+            </include>
+        </context>
+
+        <context id="cfscript">
+            <start>&lt;\s*cfscript\%]</start>
+            <end>/&gt;|&lt;\s*/\s*cfscript\s*&gt;</end>
+
+            <include>
+                <context sub-pattern="0" where="start" style-ref="cftag"/>
+                <context sub-pattern="0" where="end" style-ref="cftag"/>
+                <context ref="generic-tag"/>
+                <context id="cfscript-code" extend-parent="false">
+                    <start>&gt;</start>
+                    <include>
+                        <context sub-pattern="0" where="start" style-ref="cftag"/>
+						<context ref="cfscript-syntax"/>
+                    </include>
+                </context>
+            </include>
+        </context>
+
+		<context id="cfset">
+            <start>&lt;\s*/?\s*(cfset|cfif|cfelseif|cfreturn)</start>
+            <end>/?\s*&gt;</end>
+            <include>
+                <context sub-pattern="0" where="start" style-ref="cftag"/>
+                <context sub-pattern="0" where="end" style-ref="cftag"/>
+                
+				<context ref="cfscript-syntax"/>
+            </include>
+        </context>
+
+		<context id="cftag">
+            <start>&lt;\s*/?\s*cf[a-z0-9_-]+</start>
+            <end>/?\s*&gt;</end>
+            <include>
+                <context sub-pattern="0" where="start" style-ref="cftag"/>
+                <context sub-pattern="0" where="end" style-ref="cftag"/>
+                <context ref="generic-tag"/>
             </include>
         </context>
 
@@ -144,11 +250,529 @@
             <include>
                 <context sub-pattern="0" where="start" style-ref="tag"/>
                 <context sub-pattern="0" where="end" style-ref="tag"/>
+				
+				<context ref="cfset"/>
+				<context ref="cftag"/>
                 <context ref="generic-tag"/>
             </include>
         </context>
+	    
+		<!-- our cf syntax for cfscript within tags (could probably use improvement..) -->
+		<context id="cfscript-syntax">
+            <include>
+					<!-- Comments -->
+	                <context id="line-comment" style-ref="comment" class="comment" class-disabled="no-spell-check">
+	                    <start>//</start>
+	                    <end>$</end>
+	                    <include>
+	                        <context ref="def:line-continue"/>
+	                        <context ref="def:in-comment"/>
+	                    </include>
+	                </context>
 
-        <context id="cfml">
+	                <context id="block-comment" style-ref="comment" class="comment" class-disabled="no-spell-check">
+	                    <start>/\*</start>
+	                    <end>\*/</end>
+	                    <include>
+	                        <context ref="def:in-comment"/>
+	                    </include>
+	                </context>
+
+	                <context id="close-comment-outside-comment" style-ref="error">
+	                    <match>\*/(?!\*)</match>
+	                </context>
+					<!--
+				    <context id="operators" style-ref="operator" extend-parent="false">
+						<match>[-^:/\=\+\*&amp;&lt;&gt;]|neq|eq|lt|gt|lte|gte</match>
+				    </context>
+					-->
+	                <!-- Strings -->
+	                <context id="string-double" end-at-line-end="true" style-ref="string" class="string" class-disabled="no-spell-check">
+	                    <start>"</start>
+	                    <end>"</end>
+	                    <include>
+	                        <context ref="def:line-continue"/>
+	                        <context ref="def:escape"/>
+	                    </include>
+	                </context>
+
+	                <context id="string-single" end-at-line-end="true" style-ref="string" class="string" class-disabled="no-spell-check">
+	                    <start>'</start>
+	                    <end>'</end>
+	                    <include>
+	                        <context ref="def:line-continue"/>
+	                        <context ref="def:escape"/>
+	                    </include>
+	                </context>
+	
+					<context id="numeric" style-ref="number">
+				      <match extended="true">
+				        (\b([0-9]+|0[xX][0-9a-fA-F]+)[Ll]?\b|
+				         \b(([0-9]+[Ee][-]?[0-9]+|
+				            ([0-9]*\.[0-9]+|[0-9]+\.)([Ee][-]?[0-9]+)?)[fFdD]?|
+				            [0-9]+[FfDd]))
+				      </match>
+				    </context>
+	
+					<context id="null-value" style-ref="null-value">
+	    				<keyword>null</keyword>
+	    			</context>
+
+	    			<context id="boolean" style-ref="boolean">
+	      				<keyword>false</keyword>
+	      				<keyword>true</keyword>
+	    			</context>
+	
+				    <context id="flow" style-ref="keyword">
+				      <keyword>break</keyword>
+				      <keyword>case</keyword>
+				      <keyword>catch</keyword>
+				      <keyword>continue</keyword>
+				      <keyword>default</keyword>
+				      <keyword>do</keyword>
+				      <keyword>else</keyword>
+				      <keyword>finally</keyword>
+				      <keyword>for</keyword>
+				      <keyword>if</keyword>
+				      <keyword>return</keyword>
+				      <keyword>throw</keyword>
+				      <keyword>switch</keyword>
+				      <keyword>try</keyword>
+				      <keyword>while</keyword>
+				    </context>
+				
+				    <context id="primitive-types" style-ref="type">
+				      <keyword>application</keyword>
+				      <keyword>arguments</keyword>
+				      <keyword>attributes</keyword>
+				      <keyword>caller</keyword>
+				      <keyword>cgi</keyword>
+				      <keyword>client</keyword>
+				      <keyword>cookie</keyword>
+				      <keyword>form</keyword>
+				      <keyword>request</keyword>
+				      <keyword>server</keyword>
+				      <keyword>session</keyword>
+				      <keyword>this</keyword>
+				      <keyword>url</keyword>
+				      <keyword>var</keyword>
+				      <keyword>variables</keyword>
+				    </context>
+				
+					<context id="keywords" style-ref="keyword">
+	                    <keyword>const</keyword>
+	                    <keyword>function</keyword>
+	                    <keyword>var</keyword>
+	                    <keyword>default</keyword>
+	                    <keyword>with</keyword>
+	                    <keyword>new</keyword>
+	                    <keyword>throw</keyword>
+	                    <keyword>void</keyword>
+	                    <keyword>or</keyword>
+	                    <keyword>and</keyword>
+	                    <keyword>not</keyword>
+	                    <keyword>eq</keyword>
+	                    <keyword>neq</keyword>
+	                    <keyword>lt</keyword>
+	                    <keyword>lte</keyword>
+	                    <keyword>gt</keyword>
+	                    <keyword>gte</keyword>
+	                </context>
+	
+					<context id="functions" style-ref="function">
+	                    <keyword>ACos</keyword>
+						<keyword>ASin</keyword>
+						<keyword>Abs</keyword>
+						<keyword>AddSOAPRequestHeader</keyword>
+						<keyword>AddSOAPResponseHeader</keyword>
+						<keyword>AjaxLink</keyword>
+						<keyword>AjaxOnLoad</keyword>
+						<keyword>ArrayAppend</keyword>
+						<keyword>ArrayAvg</keyword>
+						<keyword>ArrayClear</keyword>
+						<keyword>ArrayDeleteAt</keyword>
+						<keyword>ArrayInsertAt</keyword>
+						<keyword>ArrayIsDefined</keyword>
+						<keyword>ArrayIsEmpty</keyword>
+						<keyword>ArrayLen</keyword>
+						<keyword>ArrayMax</keyword>
+						<keyword>ArrayMin</keyword>
+						<keyword>ArrayNew</keyword>
+						<keyword>ArrayPrepend</keyword>
+						<keyword>ArrayResize</keyword>
+						<keyword>ArraySet</keyword>
+						<keyword>ArraySort</keyword>
+						<keyword>ArraySum</keyword>
+						<keyword>ArraySwap</keyword>
+						<keyword>ArrayToList</keyword>
+						<keyword>Asc</keyword>
+						<keyword>Atn</keyword>
+						<keyword>AuthenticatedContext</keyword>
+						<keyword>AuthenticatedUser</keyword>
+						<keyword>BinaryDecode</keyword>
+						<keyword>BinaryEncode</keyword>
+						<keyword>BitAnd</keyword>
+						<keyword>BitMaskClear</keyword>
+						<keyword>BitMaskRead</keyword>
+						<keyword>BitMaskSet</keyword>
+						<keyword>BitNot</keyword>
+						<keyword>BitOr</keyword>
+						<keyword>BitSHLN</keyword>
+						<keyword>BitSHRN</keyword>
+						<keyword>BitXor</keyword>
+						<keyword>CJustify</keyword>
+						<keyword>Ceiling</keyword>
+						<keyword>CharsetDecode</keyword>
+						<keyword>CharsetEncode</keyword>
+						<keyword>Chr</keyword>
+						<keyword>Compare</keyword>
+						<keyword>CompareNoCase</keyword>
+						<keyword>Cos</keyword>
+						<keyword>CreateDate</keyword>
+						<keyword>CreateDateTime</keyword>
+						<keyword>CreateODBCDate</keyword>
+						<keyword>CreateODBCDateTime</keyword>
+						<keyword>CreateODBCTime</keyword>
+						<keyword>CreateObject</keyword>
+						<keyword>CreateTime</keyword>
+						<keyword>CreateTimeSpan</keyword>
+						<keyword>CreateUUID</keyword>
+						<keyword>DE</keyword>
+						<keyword>DateAdd</keyword>
+						<keyword>DateCompare</keyword>
+						<keyword>DateConvert</keyword>
+						<keyword>DateDiff</keyword>
+						<keyword>DateFormat</keyword>
+						<keyword>DatePart</keyword>
+						<keyword>Day</keyword>
+						<keyword>DayOfWeek</keyword>
+						<keyword>DayOfWeekAsString</keyword>
+						<keyword>DayOfYear</keyword>
+						<keyword>DaysInMonth</keyword>
+						<keyword>DaysInYear</keyword>
+						<keyword>DecimalFormat</keyword>
+						<keyword>DecrementValue</keyword>
+						<keyword>Decrypt</keyword>
+						<keyword>DecryptBinary</keyword>
+						<keyword>DeleteClientVariable</keyword>
+						<keyword>DeserializeJSON</keyword>
+						<keyword>DirectoryExists</keyword>
+						<keyword>DollarFormat</keyword>
+						<keyword>DotNetToCFType</keyword>
+						<keyword>Duplicate</keyword>
+						<keyword>Encrypt</keyword>
+						<keyword>EncryptBinary</keyword>
+						<keyword>Evaluate</keyword>
+						<keyword>Exp</keyword>
+						<keyword>ExpandPath</keyword>
+						<keyword>FileClose</keyword>
+						<keyword>FileCopy</keyword>
+						<keyword>FileDelete</keyword>
+						<keyword>FileExists</keyword>
+						<keyword>FileIsEOF</keyword>
+						<keyword>FileMove</keyword>
+						<keyword>FileOpen</keyword>
+						<keyword>FileRead</keyword>
+						<keyword>FileReadBinary</keyword>
+						<keyword>FileReadLine</keyword>
+						<keyword>FileSetAccessMode</keyword>
+						<keyword>FileSetAttribute</keyword>
+						<keyword>FileSetLastModified</keyword>
+						<keyword>FileWrite</keyword>
+						<keyword>FileWriteLine</keyword>
+						<keyword>Find</keyword>
+						<keyword>FindNoCase</keyword>
+						<keyword>FindOneOf</keyword>
+						<keyword>FirstDayOfMonth</keyword>
+						<keyword>Fix</keyword>
+						<keyword>FormatBaseN</keyword>
+						<keyword>GenerateSecretKey</keyword>
+						<keyword>GetAuthUser</keyword>
+						<keyword>GetBaseTagData</keyword>
+						<keyword>GetBaseTagList</keyword>
+						<keyword>GetBaseTemplatePath</keyword>
+						<keyword>GetClientVariablesList</keyword>
+						<keyword>GetComponentMetaData</keyword>
+						<keyword>GetContextRoot</keyword>
+						<keyword>GetCurrentTemplatePath</keyword>
+						<keyword>GetDirectoryFromPath</keyword>
+						<keyword>GetEncoding</keyword>
+						<keyword>GetException</keyword>
+						<keyword>GetFileFromPath</keyword>
+						<keyword>GetFileInfo</keyword>
+						<keyword>GetFunctionList</keyword>
+						<keyword>GetGatewayHelper</keyword>
+						<keyword>GetHttpRequestData</keyword>
+						<keyword>GetHttpTimeString</keyword>
+						<keyword>GetK2ServerDocCount</keyword>
+						<keyword>GetK2ServerDocCountLimit</keyword>
+						<keyword>GetLocalHostIP</keyword>
+						<keyword>GetLocale</keyword>
+						<keyword>GetLocaleDisplayName</keyword>
+						<keyword>GetMetaData</keyword>
+						<keyword>GetMetricData</keyword>
+						<keyword>GetPageContext</keyword>
+						<keyword>GetPrinterInfo</keyword>
+						<keyword>GetProfileSections</keyword>
+						<keyword>GetProfileString</keyword>
+						<keyword>GetReadableImageFormats</keyword>
+						<keyword>GetSOAPRequest</keyword>
+						<keyword>GetSOAPRequestHeader</keyword>
+						<keyword>GetSOAPResponse</keyword>
+						<keyword>GetSOAPResponseHeader</keyword>
+						<keyword>GetTempDirectory</keyword>
+						<keyword>GetTempFile</keyword>
+						<keyword>GetTemplatePath</keyword>
+						<keyword>GetTickCount</keyword>
+						<keyword>GetTimeZoneInfo</keyword>
+						<keyword>GetToken</keyword>
+						<keyword>GetUserRoles</keyword>
+						<keyword>GetWriteableImageFormats</keyword>
+						<keyword>HTMLCodeFormat</keyword>
+						<keyword>HTMLEditFormat</keyword>
+						<keyword>Hash</keyword>
+						<keyword>Hour</keyword>
+						<keyword>IIf</keyword>
+						<keyword>ImageAddBorder</keyword>
+						<keyword>ImageBlur</keyword>
+						<keyword>ImageClearRect</keyword>
+						<keyword>ImageCopy</keyword>
+						<keyword>ImageCrop</keyword>
+						<keyword>ImageDrawArc</keyword>
+						<keyword>ImageDrawBeveledRect</keyword>
+						<keyword>ImageDrawCubicCurve</keyword>
+						<keyword>ImageDrawLine</keyword>
+						<keyword>ImageDrawLines</keyword>
+						<keyword>ImageDrawOval</keyword>
+						<keyword>ImageDrawPoint</keyword>
+						<keyword>ImageDrawQuadraticCurve</keyword>
+						<keyword>ImageDrawRect</keyword>
+						<keyword>ImageDrawRoundRect</keyword>
+						<keyword>ImageDrawText</keyword>
+						<keyword>ImageFlip</keyword>
+						<keyword>ImageGetBlob</keyword>
+						<keyword>ImageGetBufferedImage</keyword>
+						<keyword>ImageGetEXIFMetadata</keyword>
+						<keyword>ImageGetEXIFTag</keyword>
+						<keyword>ImageGetHeight</keyword>
+						<keyword>ImageGetIPTCMetadata</keyword>
+						<keyword>ImageGetIPTCTag</keyword>
+						<keyword>ImageGetWidth</keyword>
+						<keyword>ImageGrayscale</keyword>
+						<keyword>ImageInfo</keyword>
+						<keyword>ImageNegative</keyword>
+						<keyword>ImageNew</keyword>
+						<keyword>ImageOverlay</keyword>
+						<keyword>ImagePaste</keyword>
+						<keyword>ImageRead</keyword>
+						<keyword>ImageReadBase64</keyword>
+						<keyword>ImageResize</keyword>
+						<keyword>ImageRotate</keyword>
+						<keyword>ImageRotateDrawingAxis</keyword>
+						<keyword>ImageScaleToFit</keyword>
+						<keyword>ImageSetAntialiasing</keyword>
+						<keyword>ImageSetBackgroundColor</keyword>
+						<keyword>ImageSetDrawingColor</keyword>
+						<keyword>ImageSetDrawingStroke</keyword>
+						<keyword>ImageSetDrawingTransparency</keyword>
+						<keyword>ImageSharpen</keyword>
+						<keyword>ImageShear</keyword>
+						<keyword>ImageShearDrawingAxis</keyword>
+						<keyword>ImageTranslate</keyword>
+						<keyword>ImageTranslateDrawingAxis</keyword>
+						<keyword>ImageWrite</keyword>
+						<keyword>ImageWriteBase64</keyword>
+						<keyword>ImageXORDrawingMode</keyword>
+						<keyword>IncrementValue</keyword>
+						<keyword>InputBaseN</keyword>
+						<keyword>Insert</keyword>
+						<keyword>Int</keyword>
+						<keyword>IsArray</keyword>
+						<keyword>IsAuthenticated</keyword>
+						<keyword>IsAuthorized</keyword>
+						<keyword>IsBinary</keyword>
+						<keyword>IsBoolean</keyword>
+						<keyword>IsCustomFunction</keyword>
+						<keyword>IsDDX</keyword>
+						<keyword>IsDate</keyword>
+						<keyword>IsDebugMode</keyword>
+						<keyword>IsDefined</keyword>
+						<keyword>IsImage</keyword>
+						<keyword>IsImageFile</keyword>
+						<keyword>IsInstanceOf</keyword>
+						<keyword>IsJSON</keyword>
+						<keyword>IsK2ServerABroker</keyword>
+						<keyword>IsK2ServerDocCountExceeded</keyword>
+						<keyword>IsK2ServerOnline</keyword>
+						<keyword>IsLeapYear</keyword>
+						<keyword>IsLocalHost</keyword>
+						<keyword>IsNumeric</keyword>
+						<keyword>IsNumericDate</keyword>
+						<keyword>IsObject</keyword>
+						<keyword>IsPDFFile</keyword>
+						<keyword>IsPDFObject</keyword>
+						<keyword>IsProtected</keyword>
+						<keyword>IsQuery</keyword>
+						<keyword>IsSOAPRequest</keyword>
+						<keyword>IsSimpleValue</keyword>
+						<keyword>IsStruct</keyword>
+						<keyword>IsUserInAnyRole</keyword>
+						<keyword>IsUserInRole</keyword>
+						<keyword>IsUserLoggedIn</keyword>
+						<keyword>IsValid</keyword>
+						<keyword>IsWDDX</keyword>
+						<keyword>IsXML</keyword>
+						<keyword>IsXmlAttribute</keyword>
+						<keyword>IsXmlDoc</keyword>
+						<keyword>IsXmlElem</keyword>
+						<keyword>IsXmlNode</keyword>
+						<keyword>IsXmlRoot</keyword>
+						<keyword>JSStringFormat</keyword>
+						<keyword>JavaCast</keyword>
+						<keyword>LCase</keyword>
+						<keyword>LJustify</keyword>
+						<keyword>LSCurrencyFormat</keyword>
+						<keyword>LSDateFormat</keyword>
+						<keyword>LSEuroCurrencyFormat</keyword>
+						<keyword>LSIsCurrency</keyword>
+						<keyword>LSIsDate</keyword>
+						<keyword>LSIsNumeric</keyword>
+						<keyword>LSNumberFormat</keyword>
+						<keyword>LSParseCurrency</keyword>
+						<keyword>LSParseDateTime</keyword>
+						<keyword>LSParseEuroCurrency</keyword>
+						<keyword>LSParseNumber</keyword>
+						<keyword>LSTimeFormat</keyword>
+						<keyword>LTrim</keyword>
+						<keyword>Left</keyword>
+						<keyword>Len</keyword>
+						<keyword>ListAppend</keyword>
+						<keyword>ListChangeDelims</keyword>
+						<keyword>ListContains</keyword>
+						<keyword>ListContainsNoCase</keyword>
+						<keyword>ListDeleteAt</keyword>
+						<keyword>ListFind</keyword>
+						<keyword>ListFindNoCase</keyword>
+						<keyword>ListFirst</keyword>
+						<keyword>ListGetAt</keyword>
+						<keyword>ListInsertAt</keyword>
+						<keyword>ListLast</keyword>
+						<keyword>ListLen</keyword>
+						<keyword>ListPrepend</keyword>
+						<keyword>ListQualify</keyword>
+						<keyword>ListRest</keyword>
+						<keyword>ListSetAt</keyword>
+						<keyword>ListSort</keyword>
+						<keyword>ListToArray</keyword>
+						<keyword>ListValueCount</keyword>
+						<keyword>ListValueCountNoCase</keyword>
+						<keyword>Log</keyword>
+						<keyword>Log10</keyword>
+						<keyword>Max</keyword>
+						<keyword>Mid</keyword>
+						<keyword>Min</keyword>
+						<keyword>Minute</keyword>
+						<keyword>Month</keyword>
+						<keyword>MonthAsString</keyword>
+						<keyword>Now</keyword>
+						<keyword>NumberFormat</keyword>
+						<keyword>ParagraphFormat</keyword>
+						<keyword>ParameterExists</keyword>
+						<keyword>ParseDateTime</keyword>
+						<keyword>Pi</keyword>
+						<keyword>PrecisionEvaluate</keyword>
+						<keyword>PreserveSingleQuotes</keyword>
+						<keyword>Quarter</keyword>
+						<keyword>QueryAddColumn</keyword>
+						<keyword>QueryAddRow</keyword>
+						<keyword>QueryConvertForGrid</keyword>
+						<keyword>QueryNew</keyword>
+						<keyword>QuerySetCell</keyword>
+						<keyword>QuotedValueList</keyword>
+						<keyword>REFind</keyword>
+						<keyword>REFindNoCase</keyword>
+						<keyword>REMatch</keyword>
+						<keyword>REMatchNoCase</keyword>
+						<keyword>REReplace</keyword>
+						<keyword>REReplaceNoCase</keyword>
+						<keyword>RJustify</keyword>
+						<keyword>RTrim</keyword>
+						<keyword>Rand</keyword>
+						<keyword>RandRange</keyword>
+						<keyword>Randomize</keyword>
+						<keyword>ReleaseComObject</keyword>
+						<keyword>RemoveChars</keyword>
+						<keyword>RepeatString</keyword>
+						<keyword>Replace</keyword>
+						<keyword>ReplaceList</keyword>
+						<keyword>ReplaceNoCase</keyword>
+						<keyword>Reverse</keyword>
+						<keyword>Right</keyword>
+						<keyword>Round</keyword>
+						<keyword>Second</keyword>
+						<keyword>SendGatewayMessage</keyword>
+						<keyword>SerializeJSON</keyword>
+						<keyword>SetEncoding</keyword>
+						<keyword>SetLocale</keyword>
+						<keyword>SetProfileString</keyword>
+						<keyword>SetVariable</keyword>
+						<keyword>Sgn</keyword>
+						<keyword>Sin</keyword>
+						<keyword>Sleep</keyword>
+						<keyword>SpanExcluding</keyword>
+						<keyword>SpanIncluding</keyword>
+						<keyword>Sqr</keyword>
+						<keyword>StripCR</keyword>
+						<keyword>StructAppend</keyword>
+						<keyword>StructClear</keyword>
+						<keyword>StructCopy</keyword>
+						<keyword>StructCount</keyword>
+						<keyword>StructDelete</keyword>
+						<keyword>StructFind</keyword>
+						<keyword>StructFindKey</keyword>
+						<keyword>StructFindValue</keyword>
+						<keyword>StructGet</keyword>
+						<keyword>StructInsert</keyword>
+						<keyword>StructIsEmpty</keyword>
+						<keyword>StructKeyArray</keyword>
+						<keyword>StructKeyExists</keyword>
+						<keyword>StructKeyList</keyword>
+						<keyword>StructNew</keyword>
+						<keyword>StructSort</keyword>
+						<keyword>StructUpdate</keyword>
+						<keyword>Tan</keyword>
+						<keyword>TimeFormat</keyword>
+						<keyword>ToBase64</keyword>
+						<keyword>ToBinary</keyword>
+						<keyword>ToScript</keyword>
+						<keyword>ToString</keyword>
+						<keyword>Trim</keyword>
+						<keyword>UCase</keyword>
+						<keyword>URLDecode</keyword>
+						<keyword>URLEncodedFormat</keyword>
+						<keyword>URLSessionFormat</keyword>
+						<keyword>Val</keyword>
+						<keyword>ValueList</keyword>
+						<keyword>VerifyClient</keyword>
+						<keyword>Week</keyword>
+						<keyword>Wrap</keyword>
+						<keyword>WriteOutput</keyword>
+						<keyword>XmlChildPos</keyword>
+						<keyword>XmlElemNew</keyword>
+						<keyword>XmlFormat</keyword>
+						<keyword>XmlGetNodeType</keyword>
+						<keyword>XmlNew</keyword>
+						<keyword>XmlParse</keyword>
+						<keyword>XmlSearch</keyword>
+						<keyword>XmlTransform</keyword>
+						<keyword>XmlValidate</keyword>
+						<keyword>Year</keyword>
+						<keyword>YesNoFormat</keyword>
+	                </context>
+    		</include>
+		</context>
+		
+		<context id="cfml">
             <include>
                 <context ref="xml:doctype"/>
                 <context ref="xml:entity"/>
@@ -156,7 +780,12 @@
                 <context ref="xml:cdata"/>
                 <context ref="comment"/>
                 <context ref="dtd"/>
+                <context ref="css"/>
                 <context ref="script"/>
+                <context ref="cfquery"/>
+                <context ref="cfscript"/>
+                <context ref="cfset"/>
+                <context ref="cftag"/>
                 <context ref="tag"/>
             </include>
         </context>
