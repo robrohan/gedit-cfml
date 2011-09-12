@@ -224,7 +224,7 @@
         </context>
 
 		<context id="cfset">
-            <start>&lt;\s*/?\s*(cfset|cfif|cfelseif|cfreturn)</start>
+            <start>&lt;\s*/?\s*(cfset|cfif|cfelseif|cfreturn)\s+</start>
             <end>/?\s*&gt;</end>
             <include>
                 <context sub-pattern="0" where="start" style-ref="cftag"/>
@@ -350,6 +350,7 @@
 				      <keyword>client</keyword>
 				      <keyword>cookie</keyword>
 				      <keyword>form</keyword>
+				      <keyword>local</keyword>
 				      <keyword>request</keyword>
 				      <keyword>server</keyword>
 				      <keyword>session</keyword>
@@ -380,7 +381,7 @@
 	                </context>
 	
 					<context id="functions" style-ref="function">
-	                    <keyword>ACos</keyword>
+						<keyword>ACos</keyword>
 						<keyword>ASin</keyword>
 						<keyword>Abs</keyword>
 						<keyword>AddSOAPRequestHeader</keyword>
